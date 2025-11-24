@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model Student {
+  studentId  String   @id @map("student_id")
+  name       String
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  dailyLogs     DailyLog[]
+  interventions Intervention[]
+
+  @@map("students")
+}
+
+model DailyLog {
+  logId        Int      @id @default(autoincrement()) @map("log_id")
+  studentId    String   @map("student_id")
+  focusMinutes Int      @map("focus_minutes")
+  quizScore    Int      @map("quiz_score")
+  status       String
+  timestamp    DateTime @default(now())
+  
+  student Student @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+
+  @@index([studentId, timestamp(sort: Desc)])
+  @@map("daily_logs")
+}
+
+model Intervention {
+  interventionId Int      @id @default(autoincrement()) @map("intervention_id")
+  studentId      String   @map("student_id")
+  taskAssigned   Boolean  @default(false) @map("task_assigned")
+  assignedTasks  String?  @map("assigned_tasks")
+  completed      Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+  
+  student Student @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+
+  @@map("interventions")
+}
+
