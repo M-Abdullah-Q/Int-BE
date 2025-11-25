@@ -25,13 +25,13 @@ const SIMULATION_MODE: boolean =
 const AUTO_APPROVE_DELAY = 5000;
 
 //db conn
-prisma
-  .$connect()
-  .then(() => console.log("Connected to Neon"))
-  .catch((error: any) => {
-    console.error("Failed to connect to db", error);
-    process.exit(1);
-  });
+// prisma
+//   .$connect()
+//   .then(() => console.log("Connected to Neon"))
+//   .catch((error: any) => {
+//     console.error("Failed to connect to db", error);
+//     process.exit(1);
+//   });
 
 app.post("/auth", async (req, res) => {
   try {
