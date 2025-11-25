@@ -186,7 +186,7 @@ async function handleDailyCheckin(
       return;
     }
 
-    const isOnTrack = quizScore >= 7 && focusMinutes >= 60;
+    const isOnTrack = quizScore >= 70 && focusMinutes >= 60;
     const status = isOnTrack ? "On Track" : "Pending Mentor Review";
 
     if (isOnTrack) {
