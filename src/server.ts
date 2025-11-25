@@ -19,8 +19,7 @@ const wss = new WebSocket.Server({ server });
 app.use(cors());
 app.use(express.json());
 
-const SIMULATION_MODE: boolean =
-  (process.env.SIMULATION_MODE ?? "false") === "true";
+const SIMULATION_MODE: boolean = (process.env.SIMULATED ?? "false") === "true";
 
 const AUTO_APPROVE_DELAY = 5000;
 
