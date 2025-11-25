@@ -172,6 +172,9 @@ async function handleDailyCheckin(
 ) {
   try {
     const { quizScore, focusMinutes } = payload;
+    console.log(
+      `${quizScore} is the score recieved and ${focusMinutes} are the focus Minutes`
+    );
 
     if (quizScore === undefined || focusMinutes === undefined) {
       ws.send(
