@@ -19,7 +19,9 @@ const wss = new WebSocket.Server({ server });
 app.use(cors());
 app.use(express.json());
 
-const SIMULATION_MODE = true;
+const SIMULATION_MODE: boolean =
+  (process.env.SIMULATION_MODE ?? "false") === "true";
+
 const AUTO_APPROVE_DELAY = 5000;
 
 //db conn
@@ -39,25 +41,25 @@ app.post("/auth", async (req, res) => {
       return res.status(400).json({ error: "Student ID required" });
     }
 
-    let student = await prisma.student.findUnique({
-      where: { studentId },
-    });
+    // let student = await prisma.student.findUnique({
+    //   where: { studentId },
+    // });
 
-    if (!student) {
-      if (!name) {
-        return res.status(400).json({ error: "Name required for new student" });
-      }
+    // if (!student) {
+    //   if (!name) {
+    //     return res.status(400).json({ error: "Name required for new student" });
+    //   }
 
-      student = await prisma.student.create({
-        data: {
-          studentId,
-          name,
-        },
-      });
-    }
+    //   student = await prisma.student.create({
+    //     data: {
+    //       studentId,
+    //       name,
+    //     },
+    //   });
+    // }
 
     const token = generateToken(studentId);
-    res.json({ token, studentId, name: student.name });
+    res.json({ token, studentId, name: name });
   } catch (error) {
     console.error("Auth error:", error);
     res.status(500).json({ error: "Authentication failed" });
@@ -83,7 +85,7 @@ app.get("/health", async (req, res) => {
   }
 });
 
-// WS Thing
+// WS Thingy
 
 wss.on("connection", (ws: WebSocket, req) => {
   console.log("New WebSocket connection attempt");
@@ -164,7 +166,6 @@ wss.on("connection", (ws: WebSocket, req) => {
 });
 
 // Lgs
-
 async function handleDailyCheckin(
   studentId: string,
   payload: any,
@@ -187,77 +188,31 @@ async function handleDailyCheckin(
     const status = isOnTrack ? "On Track" : "Pending Mentor Review";
 
     if (isOnTrack) {
-      const dailyLog = await prisma.dailyLog.create({
-        data: {
-          studentId,
-          focusMinutes,
-          quizScore,
-          status,
-        },
-      });
-
       ws.send(
         JSON.stringify({
           type: "checkin_result",
           status: "On Track",
           message: "Great job! You are on track.",
-          logId: dailyLog.logId,
         })
       );
     } else {
-      const result = await prisma.$transaction(async (tx: any) => {
-        const dailyLog = await tx.dailyLog.create({
-          data: {
-            studentId,
-            focusMinutes,
-            quizScore,
-            status,
-          },
-        });
-
-        const intervention = await tx.intervention.create({
-          data: {
-            studentId,
-            taskAssigned: false,
-            assignedTasks: null,
-            completed: false,
-          },
-        });
-
-        return { dailyLog, intervention };
-      });
-
       ws.send(
         JSON.stringify({
           type: "checkin_result",
           status: "Pending Mentor Review",
           message:
             "Your performance needs attention. Waiting for mentor review.",
-          interventionId: result.intervention.interventionId,
-          logId: result.dailyLog.logId,
         })
       );
-
-      // Sim n8n
+      const interventionId = 123;
+      // Simulated n8n workflow
       if (SIMULATION_MODE) {
-        // SIMULATION: Auto-approve after delay
         console.log(
-          `🔔 [SIMULATION] Auto-approving intervention ${result.intervention.interventionId} in ${AUTO_APPROVE_DELAY}ms`
+          `🔔 [SIMULATION] Auto-approving intervention for ${studentId} in ${AUTO_APPROVE_DELAY}ms`
         );
-        simulateN8nApproval(
-          studentId,
-          result.intervention.interventionId,
-          quizScore,
-          focusMinutes
-        );
+        simulateN8nApproval(studentId, interventionId, quizScore, focusMinutes);
       } else {
-        // n8n (ltr)
-        // triggerN8nWebhook(
-        //   studentId,
-        //   result.intervention.interventionId,
-        //   quizScore,
-        //   focusMinutes
-        // );
+        triggerN8nWebhook(studentId, interventionId, quizScore, focusMinutes);
       }
     }
   } catch (error) {
@@ -278,10 +233,9 @@ async function simulateN8nApproval(
   quizScore: number,
   focusMinutes: number
 ) {
-  // Simulate mentor review delay
+  // mentor review delay
   setTimeout(async () => {
     try {
-      // Generate simulated remedial tasks based on performance
       let assignedTasks = "";
 
       if (quizScore < 7 && focusMinutes < 60) {
@@ -293,20 +247,20 @@ async function simulateN8nApproval(
       }
 
       // TODO: db update
-      await prisma.intervention.update({
-        where: { interventionId },
-        data: {
-          taskAssigned: true,
-          assignedTasks,
-          updatedAt: new Date(),
-        },
-      });
+      //   await prisma.intervention.update({
+      //     where: { interventionId },
+      //     data: {
+      //       taskAssigned: true,
+      //       assignedTasks,
+      //       updatedAt: new Date(),
+      //     },
+      //   });
 
       console.log(
         `[SIMULATION] Intervention ${interventionId} approved for student ${studentId}`
       );
 
-      // Send to student via WebSocket
+      // WS send
       const sent = wsManager.sendToStudent(studentId, {
         type: "intervention_assigned",
         interventionId,
@@ -329,7 +283,7 @@ async function simulateN8nApproval(
 }
 
 //n8n WEBHOOK (riyalllll)
-/*
+
 async function triggerN8nWebhook(
   studentId: string,
   interventionId: number,
@@ -339,7 +293,7 @@ async function triggerN8nWebhook(
   try {
     const n8nUrl = process.env.N8N_WEBHOOK_URL;
     if (!n8nUrl) {
-      console.error('N8N_WEBHOOK_URL not configured');
+      console.error("N8N_WEBHOOK_URL not configured");
       return;
     }
 
@@ -348,17 +302,16 @@ async function triggerN8nWebhook(
       interventionId,
       quizScore,
       focusMinutes,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     console.log(`N8N webhook triggered for student ${studentId}`);
   } catch (error) {
-    console.error('Failed to trigger n8n webhook:', error);
+    console.error("Failed to trigger n8n webhook:", error);
   }
 }
-*/
 
-// Endpoint to receive approval from n8n (or manual testing)
+// Endpoint to receive approval from n8n
 app.post("/intervention/approve", express.json(), async (req, res) => {
   try {
     const { studentId, interventionId, assignedTasks, approved } = req.body;
@@ -367,14 +320,14 @@ app.post("/intervention/approve", express.json(), async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const updatedIntervention = await prisma.intervention.update({
-      where: { interventionId },
-      data: {
-        taskAssigned: true,
-        assignedTasks,
-        updatedAt: new Date(),
-      },
-    });
+    // const updatedIntervention = await prisma.intervention.update({
+    //   where: { interventionId },
+    //   data: {
+    //     taskAssigned: true,
+    //     assignedTasks,
+    //     updatedAt: new Date(),
+    //   },
+    // });
 
     const sent = wsManager.sendToStudent(studentId, {
       type: "intervention_assigned",
@@ -390,14 +343,14 @@ app.post("/intervention/approve", express.json(), async (req, res) => {
       res.json({
         success: true,
         message: "Intervention assigned and student notified",
-        intervention: updatedIntervention,
+        intervention: 123,
       });
     } else {
       res.json({
         success: true,
         message: "Intervention assigned but student is offline",
         offline: true,
-        intervention: updatedIntervention,
+        intervention: 123,
       });
     }
   } catch (error) {
@@ -424,27 +377,27 @@ async function handleRemedialCompletion(
       return;
     }
 
-    const updatedIntervention = await prisma.intervention.updateMany({
-      where: {
-        interventionId,
-        studentId,
-        taskAssigned: true,
-      },
-      data: {
-        completed: true,
-        updatedAt: new Date(),
-      },
-    });
+    // const updatedIntervention = await prisma.intervention.updateMany({
+    //   where: {
+    //     interventionId,
+    //     studentId,
+    //     taskAssigned: true,
+    //   },
+    //   data: {
+    //     completed: true,
+    //     updatedAt: new Date(),
+    //   },
+    // });
 
-    if (updatedIntervention.count === 0) {
-      ws.send(
-        JSON.stringify({
-          type: "error",
-          message: "Invalid intervention or not assigned",
-        })
-      );
-      return;
-    }
+    // if (updatedIntervention.count === 0) {
+    //   ws.send(
+    //     JSON.stringify({
+    //       type: "error",
+    //       message: "Invalid intervention or not assigned",
+    //     })
+    //   );
+    //   return;
+    // }
 
     ws.send(
       JSON.stringify({
@@ -469,64 +422,7 @@ async function handleRemedialCompletion(
   }
 }
 
-// extras
-
-// Get student stats
-app.get(
-  "/students/:studentId/stats",
-  authenticateToken,
-  async (req: AuthRequest, res) => {
-    try {
-      const { studentId } = req.params;
-
-      const stats = await prisma.student.findUnique({
-        where: { studentId },
-        include: {
-          dailyLogs: {
-            orderBy: { timestamp: "desc" },
-            take: 10,
-          },
-          interventions: {
-            orderBy: { createdAt: "desc" },
-            take: 5,
-          },
-        },
-      });
-
-      if (!stats) {
-        return res.status(404).json({ error: "Student not found" });
-      }
-
-      const aggregates = await prisma.dailyLog.aggregate({
-        where: { studentId },
-        _avg: {
-          quizScore: true,
-          focusMinutes: true,
-        },
-        _count: true,
-      });
-
-      res.json({
-        student: {
-          studentId: stats.studentId,
-          name: stats.name,
-        },
-        stats: {
-          totalCheckins: aggregates._count,
-          avgQuizScore: aggregates._avg.quizScore,
-          avgFocusMinutes: aggregates._avg.focusMinutes,
-        },
-        // recentLogs: stats.recentLogs,
-        recentInterventions: stats.interventions,
-      });
-    } catch (error) {
-      console.error("Stats error:", error);
-      res.status(500).json({ error: "Failed to fetch stats" });
-    }
-  }
-);
-
-// Get pending interventions for student (to handle offline reconnections)
+// ets : pending interventions for student
 app.get(
   "/students/:studentId/pending-interventions",
   authenticateToken,
@@ -556,58 +452,6 @@ app.get(
   }
 );
 
-// Manual approval endpoint for testing (bypass simulation)
-app.post("/test/manual-approve", express.json(), async (req, res) => {
-  try {
-    const { interventionId, assignedTasks } = req.body;
-
-    if (!interventionId) {
-      return res.status(400).json({ error: "interventionId required" });
-    }
-
-    const intervention = await prisma.intervention.findUnique({
-      where: { interventionId },
-    });
-
-    if (!intervention) {
-      return res.status(404).json({ error: "Intervention not found" });
-    }
-
-    const tasks =
-      assignedTasks || `Manual test task for intervention ${interventionId}`;
-
-    const updated = await prisma.intervention.update({
-      where: { interventionId },
-      data: {
-        taskAssigned: true,
-        assignedTasks: tasks,
-        updatedAt: new Date(),
-      },
-    });
-
-    const sent = wsManager.sendToStudent(intervention.studentId, {
-      type: "intervention_assigned",
-      interventionId,
-      assignedTasks: tasks,
-      message: "Manual test: Remedial task assigned",
-      mode: "remedial_only",
-      manual: true,
-    });
-
-    res.json({
-      success: true,
-      message: "Manual approval processed",
-      intervention: updated,
-      studentNotified: sent,
-    });
-  } catch (error) {
-    console.error("Manual approval error:", error);
-    res.status(500).json({ error: "Failed to process manual approval" });
-  }
-});
-
-// Server
-
 const PORT = process.env.PORT || 8080;
 
 server.listen(PORT, () => {
@@ -621,7 +465,6 @@ server.listen(PORT, () => {
   }
 });
 
-// Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("SIGTERM signal received: closing HTTP server");
   server.close(async () => {

@@ -9,12 +9,12 @@ export class WebSocketManager {
 
   addConnection(studentId: string, socket: WebSocket) {
     this.connections.set(studentId, socket);
-    console.log(`✅ Student ${studentId} connected via WebSocket`);
+    console.log(`Student ${studentId} connected via WebSocket`);
   }
 
   removeConnection(studentId: string) {
     this.connections.delete(studentId);
-    console.log(`❌ Student ${studentId} disconnected`);
+    console.log(`Student ${studentId} disconnected`);
   }
 
   sendToStudent(studentId: string, message: any) {
