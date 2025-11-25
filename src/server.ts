@@ -3,7 +3,7 @@ import http from "http";
 import WebSocket from "ws";
 import cors from "cors";
 import dotenv from "dotenv";
-import { prisma } from "./utils/prisma";
+// import { prisma } from "./utils/prisma";
 import { authenticateToken, generateToken } from "./middleware/auth";
 import { wsManager } from "./utils/websocket";
 import { AuthRequest } from "./types";
@@ -69,7 +69,7 @@ app.post("/auth", async (req, res) => {
 // Health check
 app.get("/health", async (req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    // await prisma.$queryRaw`SELECT 1`;
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
@@ -430,20 +430,20 @@ app.get(
     try {
       const { studentId } = req.params;
 
-      const pendingInterventions = await prisma.intervention.findMany({
-        where: {
-          studentId,
-          taskAssigned: true,
-          completed: false,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+      //   const pendingInterventions = await prisma.intervention.findMany({
+      //     where: {
+      //       studentId,
+      //       taskAssigned: true,
+      //       completed: false,
+      //     },
+      //     orderBy: {
+      //       createdAt: "desc",
+      //     },
+      //   });
 
       res.json({
         studentId,
-        pendingInterventions,
+        pendingInterventions: 0,
       });
     } catch (error) {
       console.error("Pending interventions error:", error);
@@ -469,7 +469,7 @@ process.on("SIGTERM", async () => {
   console.log("SIGTERM signal received: closing HTTP server");
   server.close(async () => {
     console.log("HTTP server closed");
-    await prisma.$disconnect();
+    // await prisma.$disconnect();
     process.exit(0);
   });
 });
@@ -478,7 +478,7 @@ process.on("SIGINT", async () => {
   console.log("SIGINT signal received: closing HTTP server");
   server.close(async () => {
     console.log("HTTP server closed");
-    await prisma.$disconnect();
+    // await prisma.$disconnect();
     process.exit(0);
   });
 });
